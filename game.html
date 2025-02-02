@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matching Game</title>
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Comic Sans MS', sans-serif;
+            background: linear-gradient(45deg, #ff6ec7, #ffb6c1);
+            color: white;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: auto;
+        }
+
+        h1 {
+            font-size: 3.5em;
+            margin-top: 20px;
+            text-shadow: 3px 3px 5px rgba(0, 0, 0, 0.3);
+            animation: bounce 1.5s ease-in-out infinite;
+        }
+
+        /* Timer Styles */
+        #timer {
+            font-size: 2.5em;
+            margin: 20px;
+            padding: 15px;
+            border-radius: 15px;
+            background-color: rgba(0, 0, 0, 0.6);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 2s ease-out;
+        }
+
+        /* Animation for Timer */
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(-10px); }
+            50% { transform: translateY(10px); }
+        }
+
+        /* Game Container */
+        .game-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            justify-content: center;
+            max-width: 900px;
+            margin-top: 30px;
+            padding: 20px;
+            grid-template-rows: repeat(4, auto);
+            overflow-y: auto;
+        }
+
+        /* Card Styles */
+        .card {
+            width: 200px;
+            height: 250px;
+            background-color: #ffeb3b;
+            border-radius: 15px;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.4s ease;
+            font-size: 2em;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Card Content (Text and Images) */
+        .card img, .card span {
+            display: none;
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Ensures image fits within the card */
+            border-radius: 10px;
+        }
+
+        .flipped img, .flipped span {
+            display: block;
+        }
+
+        .show-all img, .show-all span {
+            display: block;
+        }
+
+        .hidden {
+            visibility: hidden;
+        }
+
+        /* Leaderboard Styles */
+        #ranking {
+            margin-top: 40px;
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        #leaderboard {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #leaderboard li {
+            margin: 10px 0;
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: left;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Button Styles */
+        .button {
+            background-color: #ff6347;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-size: 1.2em;
+            cursor: pointer;
+            border: none;
+            transition: transform 0.2s ease;
+        }
+
+        .button:hover {
+            transform: scale(1.1);
+        }
+
+        .button:active {
+            transform: scale(0.95);
+        }
+
+    </style>
+</head>
+<body>
+    <h1>Match the Appearance Words!</h1>
+    <p id="timer" style="display: none;">Time: 00:00</p>
+    <div class="game-container" id="gameBoard"></div>
+    <div id="ranking">
+        <h2>Leaderboard</h2>
+        <ul id="leaderboard"></ul>
+    </div>
+    <script>
+        const words = [
+            "Tall", "Short", "Thin", "Slim", "Fat", "Short Hair", "Long Hair", "Curly Hair", "Straight Hair", "Wavy Hair", 
+            "Blonde Hair", "Black Hair", "Big Eye", "Small Eye", "Fair Skin", "Tan Skin"
+        ];
+
+        const images = {
+            "Tall": "images/tall.jpg",
+            "Short": "images/short.jpg",
+            "Thin": "images/thin.jpg",
+            "Slim": "images/slim.jpg",
+            "Fat": "images/fat.jpg",
+            "Short Hair": "images/short_hair.jpg",
+            "Long Hair": "images/long_hair.jpg",
+            "Curly Hair": "images/curly_hair.jpg",
+            "Straight Hair": "images/straight_hair.jpg",
+            "Wavy Hair": "images/wavy_hair.jpg",
+            "Blonde Hair": "images/blonde_hair.jpg",
+            "Black Hair": "images/black_hair.jpg",
+            "Big Eye": "images/big_eye.jpg",
+            "Small Eye": "images/small_eye.jpg",
+            "Fair Skin": "images/fair_skin.jpg",
+            "Tan Skin": "images/tan_skin.jpg"
+        };
+
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let startTime, timerInterval, countdownInterval;
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                let elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                let minutes = Math.floor(elapsedTime / 60);
+                let seconds = elapsedTime % 60;
+                document.getElementById("timer").textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            let timeTaken = Math.floor((Date.now() - startTime) / 1000);
+            saveTime(timeTaken);
+        }
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startCountdown() {
+            let countdown = 10;
+            document.getElementById("timer").style.display = "block";
+            document.getElementById("timer").textContent = `Time: 00:${countdown.toString().padStart(2, '0')}`;
+            countdownInterval = setInterval(() => {
+                countdown--;
+                document.getElementById("timer").textContent = `Time: 00:${countdown.toString().padStart(2, '0')}`;
+                if (countdown === 0) {
+                    clearInterval(countdownInterval);
+                    hideCards(); // Flip the cards after 10 seconds
+                }
+            }, 1000);
+        }
+
+        function createGameBoard() {
+            let gameBoard = document.getElementById("gameBoard");
+            let shuffledWords = shuffle([...words]);
+
+            shuffledWords.forEach((word) => {
+                // Create text card
+                let card1 = document.createElement("div");
+                card1.classList.add("card");
+                card1.dataset.word = word;
+                card1.innerHTML = `<span>${word}</span>`;
+                card1.onclick = () => flipCard(card1);
+                gameBoard.appendChild(card1);
+
+                // Create image card
+                let card2 = document.createElement("div");
+                card2.classList.add("card");
+                card2.dataset.word = word;
+                card2.innerHTML = `<img src="${images[word]}" alt="${word}">`;
+                card2.onclick = () => flipCard(card2);
+                gameBoard.appendChild(card2);
+
+                cards.push(card1, card2);
+            });
+
+            // Shuffle the cards and display them in random positions
+            shuffle(cards);
+            cards.forEach(card => gameBoard.appendChild(card));
+
+            // Show all cards before the countdown starts
+            cards.forEach(card => card.classList.add("show-all"));
+
+            // Start the countdown
+            startCountdown();
+        }
+
+        function hideCards() {
+            cards.forEach(card => card.classList.remove("show-all"));
+            startTimer(); // Start the main timer after the 10-second countdown
+        }
+
+        function flipCard(card) {
+            if (flippedCards.length < 2 && !card.classList.contains("flipped")) {
+                card.classList.add("flipped");
+                flippedCards.push(card);
+                if (flippedCards.length === 2) {
+                    checkMatch();
+                }
+            }
+        }
+
+        function checkMatch() {
+            let [card1, card2] = flippedCards;
+            if (card1.dataset.word === card2.dataset.word) {
+                setTimeout(() => {
+                    card1.classList.add("hidden");
+                    card2.classList.add("hidden");
+                    matchedPairs++;
+                    if (matchedPairs === words.length) {
+                        stopTimer();
+                    }
+                }, 500);
+            } else {
+                setTimeout(() => {
+                    card1.classList.remove("flipped");
+                    card2.classList.remove("flipped");
+                }, 1000);
+            }
+            flippedCards = [];
+        }
+
+        function saveTime(time) {
+            let playerName = localStorage.getItem("playerName") || "Unknown";
+            let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+            leaderboard.push({ name: playerName, time });
+            leaderboard.sort((a, b) => a.time - b.time);
+            localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
+            displayLeaderboard();
+        }
+
+        function displayLeaderboard() {
+            let leaderboard = JSON.parse(localStorage.getItem("leaderboard")) || [];
+            let leaderboardElement = document.getElementById("leaderboard");
+            leaderboardElement.innerHTML = "";
+            leaderboard.slice(0, 5).forEach(entry => {
+                let li = document.createElement("li");
+                let minutes = Math.floor(entry.time / 60);
+                let seconds = entry.time % 60;
+                li.textContent = `${entry.name}: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                leaderboardElement.appendChild(li);
+            });
+        }
+
+        // Initialize the game
+        createGameBoard();
+        displayLeaderboard();
+    </script>
+</body>
+</html>
